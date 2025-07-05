@@ -1,0 +1,228 @@
+{
+    "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+    "name": "Agent Configuration",
+    "scopeName": "source.agent-config",
+    "fileTypes": [
+        "agent.json",
+        "crew.json", 
+        "eliza.json"
+    ],
+    "patterns": [
+        {
+            "include": "#value"
+        }
+    ],
+    "repository": {
+        "array": {
+            "begin": "\\[",
+            "beginCaptures": {
+                "0": {
+                    "name": "punctuation.definition.array.begin.agent-config"
+                }
+            },
+            "end": "\\]",
+            "endCaptures": {
+                "0": {
+                    "name": "punctuation.definition.array.end.agent-config"
+                }
+            },
+            "name": "meta.structure.array.agent-config",
+            "patterns": [
+                {
+                    "include": "#value"
+                },
+                {
+                    "match": ",",
+                    "name": "punctuation.separator.array.agent-config"
+                },
+                {
+                    "match": "[^\\s\\]]",
+                    "name": "invalid.illegal.expected-array-separator.agent-config"
+                }
+            ]
+        },
+        "comments": {
+            "patterns": [
+                {
+                    "begin": "/\\*\\*(?!/)",
+                    "captures": {
+                        "0": {
+                            "name": "punctuation.definition.comment.agent-config"
+                        }
+                    },
+                    "end": "\\*/",
+                    "name": "comment.block.documentation.agent-config"
+                },
+                {
+                    "begin": "/\\*",
+                    "captures": {
+                        "0": {
+                            "name": "punctuation.definition.comment.agent-config"
+                        }
+                    },
+                    "end": "\\*/",
+                    "name": "comment.block.agent-config"
+                },
+                {
+                    "captures": {
+                        "1": {
+                            "name": "punctuation.definition.comment.agent-config"
+                        }
+                    },
+                    "match": "(//).*$\\n?",
+                    "name": "comment.line.double-slash.agent-config"
+                }
+            ]
+        },
+        "constant": {
+            "match": "\\b(?:true|false|null)\\b",
+            "name": "constant.language.agent-config"
+        },
+        "number": {
+            "match": "(?x)        # turn on extended mode\n  -?        # an optional minus\n  (?:\n    0       # a zero\n    |       # ...or...\n    [1-9]   # a 1-9 character\n    \\d*     # followed by zero or more digits\n  )\n  (?:\n    (?:\n      \\.    # a period\n      \\d+   # followed by one or more digits\n    )?\n    (?:\n      [eE]  # an e character\n      [+-]? # followed by an option +/-\n      \\d+   # followed by one or more digits\n    )?      # make exponent optional\n  )?        # make decimal portion optional",
+            "name": "constant.numeric.agent-config"
+        },
+        "object": {
+            "begin": "\\{",
+            "beginCaptures": {
+                "0": {
+                    "name": "punctuation.definition.dictionary.begin.agent-config"
+                }
+            },
+            "end": "\\}",
+            "endCaptures": {
+                "0": {
+                    "name": "punctuation.definition.dictionary.end.agent-config"
+                }
+            },
+            "name": "meta.structure.dictionary.agent-config",
+            "patterns": [
+                {
+                    "comment": "the agent-config object key",
+                    "include": "#objectkey"
+                },
+                {
+                    "include": "#comments"
+                },
+                {
+                    "begin": ":",
+                    "beginCaptures": {
+                        "0": {
+                            "name": "punctuation.separator.dictionary.key-value.agent-config"
+                        }
+                    },
+                    "end": "(,)|(?=\\})",
+                    "endCaptures": {
+                        "1": {
+                            "name": "punctuation.separator.dictionary.pair.agent-config"
+                        }
+                    },
+                    "name": "meta.structure.dictionary.value.agent-config",
+                    "patterns": [
+                        {
+                            "comment": "the agent-config object value",
+                            "include": "#value"
+                        },
+                        {
+                            "match": "[^\\s,]",
+                            "name": "invalid.illegal.expected-dictionary-separator.agent-config"
+                        }
+                    ]
+                },
+                {
+                    "match": "[^\\s\\}]",
+                    "name": "invalid.illegal.expected-dictionary-separator.agent-config"
+                }
+            ]
+        },
+        "string": {
+            "begin": "\"",
+            "beginCaptures": {
+                "0": {
+                    "name": "punctuation.definition.string.begin.agent-config"
+                }
+            },
+            "end": "\"",
+            "endCaptures": {
+                "0": {
+                    "name": "punctuation.definition.string.end.agent-config"
+                }
+            },
+            "name": "string.quoted.double.agent-config",
+            "patterns": [
+                {
+                    "include": "#stringcontent"
+                }
+            ]
+        },
+        "objectkey": {
+            "begin": "\"",
+            "beginCaptures": {
+                "0": {
+                    "name": "punctuation.support.type.property-name.begin.agent-config"
+                }
+            },
+            "end": "\"",
+            "endCaptures": {
+                "0": {
+                    "name": "punctuation.support.type.property-name.end.agent-config"
+                }
+            },
+            "name": "string.agent-config support.type.property-name.agent-config",
+            "patterns": [
+                {
+                    "include": "#agentkeys"
+                },
+                {
+                    "include": "#stringcontent"
+                }
+            ]
+        },
+        "agentkeys": {
+            "patterns": [
+                {
+                    "match": "\\b(name|role|goal|backstory|instructions|model|temperature|max_tokens|bio|lore|style|topics|adjectives|framework|agents|tasks|crew|process|tools|memory|verbose|config_list|system_message|human_input_mode|max_consecutive_auto_reply|messages|current_step|result|metadata|state|workflow|nodes|edges)\\b",
+                    "name": "support.type.property-name.agent-config keyword.control.agent-config"
+                },
+                {
+                    "match": "\\b(openai|anthropic|gpt-4o|gpt-3.5-turbo|claude|llama|sequential|hierarchical|round_robin|auto|manual|NEVER|ALWAYS|TERMINATE)\\b",
+                    "name": "constant.language.agent-config"
+                }
+            ]
+        },
+        "stringcontent": {
+            "patterns": [
+                {
+                    "match": "(?x)                # turn on extended mode\n  \\\\                # a literal backslash\n  (?:               # ...followed by...\n    [\"\\\\/bfnrt]     # one of these characters\n    |               # ...or...\n    u               # a u\n    [0-9a-fA-F]{4}) # and four hex digits",
+                    "name": "constant.character.escape.agent-config"
+                },
+                {
+                    "match": "\\\\.",
+                    "name": "invalid.illegal.unrecognized-string-escape.agent-config"
+                }
+            ]
+        },
+        "value": {
+            "patterns": [
+                {
+                    "include": "#constant"
+                },
+                {
+                    "include": "#number"
+                },
+                {
+                    "include": "#string"
+                },
+                {
+                    "include": "#array"
+                },
+                {
+                    "include": "#object"
+                },
+                {
+                    "include": "#comments"
+                }
+            ]
+        }
+    }
+}

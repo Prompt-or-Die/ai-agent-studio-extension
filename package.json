@@ -1,0 +1,280 @@
+{
+  "name": "ai-agent-studio",
+  "displayName": "AI Agent Studio",
+  "description": "The ultimate extension for developing AI agents with support for all major frameworks including OpenAI Agents SDK, ElizaOS, LangGraph, CrewAI, AutoGen, SmolAgents, and more.",
+  "version": "1.0.0",
+  "publisher": "ai-agent-studio",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ai-agent-studio/vscode-extension"
+  },
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "AI",
+    "Debuggers",
+    "Testing",
+    "Snippets",
+    "Other"
+  ],
+  "keywords": [
+    "ai",
+    "agents",
+    "openai",
+    "elizaos",
+    "langraph",
+    "crewai",
+    "autogen",
+    "smolagents",
+    "multi-agent",
+    "agentic",
+    "context7",
+    "ai-development"
+  ],
+  "activationEvents": [
+    "onLanguage:typescript",
+    "onLanguage:javascript",
+    "onLanguage:python",
+    "onLanguage:json",
+    "onCommand:ai-agent-studio.createProject",
+    "onCommand:ai-agent-studio.openAgentDashboard",
+    "workspaceContains:**/*.agent.json",
+    "workspaceContains:**/*.crew.json",
+    "workspaceContains:**/*.eliza.json"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "ai-agent-studio.createProject",
+        "title": "Create New Agent Project",
+        "category": "AI Agent Studio",
+        "icon": "$(rocket)"
+      },
+      {
+        "command": "ai-agent-studio.openAgentDashboard",
+        "title": "Open Agent Dashboard",
+        "category": "AI Agent Studio",
+        "icon": "$(dashboard)"
+      },
+      {
+        "command": "ai-agent-studio.generateAgent",
+        "title": "Generate Agent Code",
+        "category": "AI Agent Studio",
+        "icon": "$(wand)"
+      },
+      {
+        "command": "ai-agent-studio.startAgentMonitoring",
+        "title": "Start Agent Monitoring",
+        "category": "AI Agent Studio",
+        "icon": "$(pulse)"
+      },
+      {
+        "command": "ai-agent-studio.searchContext7",
+        "title": "Search Context7 Documentation",
+        "category": "AI Agent Studio",
+        "icon": "$(search)"
+      },
+      {
+        "command": "ai-agent-studio.configureFramework",
+        "title": "Configure Framework Settings",
+        "category": "AI Agent Studio",
+        "icon": "$(settings-gear)"
+      },
+      {
+        "command": "ai-agent-studio.deployAgent",
+        "title": "Deploy Agent",
+        "category": "AI Agent Studio",
+        "icon": "$(cloud-upload)"
+      },
+      {
+        "command": "ai-agent-studio.testAgent",
+        "title": "Test Agent",
+        "category": "AI Agent Studio",
+        "icon": "$(beaker)"
+      },
+      {
+        "command": "ai-agent-studio.openFrameworkDocs",
+        "title": "Open Framework Documentation",
+        "category": "AI Agent Studio",
+        "icon": "$(book)"
+      },
+      {
+        "command": "ai-agent-studio.agentFlowVisualizer",
+        "title": "Visualize Agent Flow",
+        "category": "AI Agent Studio",
+        "icon": "$(type-hierarchy)"
+      }
+    ],
+    "menus": {
+      "explorer/context": [
+        {
+          "when": "resourceExtname == .py || resourceExtname == .ts || resourceExtname == .js",
+          "command": "ai-agent-studio.generateAgent",
+          "group": "ai-agent-studio"
+        }
+      ],
+      "editor/context": [
+        {
+          "when": "resourceExtname == .py || resourceExtname == .ts || resourceExtname == .js",
+          "command": "ai-agent-studio.generateAgent",
+          "group": "ai-agent-studio"
+        },
+        {
+          "command": "ai-agent-studio.searchContext7",
+          "group": "ai-agent-studio"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "ai-agent-studio.createProject",
+          "when": "true"
+        },
+        {
+          "command": "ai-agent-studio.openAgentDashboard",
+          "when": "true"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "ai-agent-studio",
+          "title": "AI Agent Studio",
+          "icon": "$(robot)"
+        }
+      ]
+    },
+    "views": {
+      "ai-agent-studio": [
+        {
+          "id": "agentProjects",
+          "name": "Agent Projects",
+          "when": "true"
+        },
+        {
+          "id": "frameworkStatus",
+          "name": "Framework Status",
+          "when": "true"
+        },
+        {
+          "id": "agentMonitoring",
+          "name": "Agent Monitoring",
+          "when": "true"
+        },
+        {
+          "id": "context7Explorer",
+          "name": "Context7 Explorer",
+          "when": "true"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "AI Agent Studio",
+      "properties": {
+        "aiAgentStudio.defaultFramework": {
+          "type": "string",
+          "enum": [
+            "openai-agents-sdk",
+            "elizaos",
+            "langraph",
+            "crewai",
+            "autogen",
+            "smolagents",
+            "google-adk",
+            "semantic-kernel",
+            "langchain",
+            "pydantic-ai"
+          ],
+          "default": "openai-agents-sdk",
+          "description": "Default AI agent framework to use for new projects"
+        },
+        "aiAgentStudio.context7.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable Context7 integration for real-time documentation"
+        },
+        "aiAgentStudio.context7.apiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Context7 API key for enhanced documentation access"
+        },
+        "aiAgentStudio.monitoring.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable agent monitoring and debugging features"
+        },
+        "aiAgentStudio.autoCompleteEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable framework-specific auto-completion"
+        },
+        "aiAgentStudio.templatePath": {
+          "type": "string",
+          "default": "",
+          "description": "Custom path for agent project templates"
+        }
+      ]
+    },
+    "snippets": [
+      {
+        "language": "typescript",
+        "path": "./snippets/typescript.json"
+      },
+      {
+        "language": "javascript",
+        "path": "./snippets/javascript.json"
+      },
+      {
+        "language": "python",
+        "path": "./snippets/python.json"
+      },
+      {
+        "language": "json",
+        "path": "./snippets/json.json"
+      }
+    ],
+    "languages": [
+      {
+        "id": "agent-config",
+        "aliases": ["Agent Config", "agent-config"],
+        "extensions": [".agent.json", ".crew.json", ".eliza.json"],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "agent-config",
+        "scopeName": "source.agent-config",
+        "path": "./syntaxes/agent-config.tmGrammar.json"
+      }
+    ]
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "pretest": "npm run compile && npm run lint",
+    "lint": "eslint src --ext ts",
+    "test": "node ./out/test/runTest.js",
+    "package": "vsce package",
+    "publish": "vsce publish"
+  },
+  "devDependencies": {
+    "@types/vscode": "^1.85.0",
+    "@types/node": "^18.x",
+    "@typescript-eslint/eslint-plugin": "^6.13.1",
+    "@typescript-eslint/parser": "^6.13.1",
+    "eslint": "^8.54.0",
+    "typescript": "^5.3.2",
+    "@vscode/test-electron": "^2.3.8",
+    "vsce": "^2.15.0"
+  },
+  "dependencies": {
+    "axios": "^1.6.0",
+    "ws": "^8.14.2",
+    "semver": "^7.5.4",
+    "yaml": "^2.3.4"
+  }
+}
