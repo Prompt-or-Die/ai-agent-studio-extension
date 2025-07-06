@@ -10,59 +10,177 @@ export interface DashboardData {
     metrics: any;
     recentActivity: any[];
     systemInfo: any;
+    lastUpdate: number;
+}
+
+export interface DashboardCache {
+    data: DashboardData | null;
+    timestamp: number;
+    isStale: boolean;
 }
 
 export class AgentDashboard {
     private panel?: vscode.WebviewPanel;
-    private frameworkManager: FrameworkManager;
-    private projectManager: AgentProjectManager;
-    private agentMonitor: AgentMonitor;
+    private frameworkManager?: FrameworkManager;
+    private projectManager?: AgentProjectManager;
+    private agentMonitor?: AgentMonitor;
+    private cache: DashboardCache = { data: null, timestamp: 0, isStale: true };
+    private refreshInterval?: NodeJS.Timeout;
+    private isRefreshing: boolean = false;
+    private outputChannel: vscode.OutputChannel;
+    private readonly CACHE_TTL = 5000; // 5 seconds cache TTL
+    private readonly REFRESH_INTERVAL = 10000; // 10 seconds auto-refresh
 
     constructor(private context: vscode.ExtensionContext) {
-        this.frameworkManager = new FrameworkManager(context);
-        this.projectManager = new AgentProjectManager(context);
-        this.agentMonitor = new AgentMonitor(context);
+        this.outputChannel = vscode.window.createOutputChannel('AI Agent Studio - Dashboard');
+        context.subscriptions.push(this.outputChannel);
+    }
+
+    // Lazy initialization of managers
+    private getFrameworkManager(): FrameworkManager {
+        if (!this.frameworkManager) {
+            this.frameworkManager = new FrameworkManager(this.context);
+        }
+        return this.frameworkManager;
+    }
+
+    private getProjectManager(): AgentProjectManager {
+        if (!this.projectManager) {
+            this.projectManager = new AgentProjectManager(this.context);
+        }
+        return this.projectManager;
+    }
+
+    private getAgentMonitor(): AgentMonitor {
+        if (!this.agentMonitor) {
+            this.agentMonitor = new AgentMonitor(this.context);
+        }
+        return this.agentMonitor;
     }
 
     async open(): Promise<void> {
-        // Create or show existing panel
-        if (this.panel) {
-            this.panel.reveal(vscode.ViewColumn.One);
-            return;
+        try {
+            // Create or show existing panel
+            if (this.panel) {
+                this.panel.reveal(vscode.ViewColumn.One);
+                // Force refresh if cache is stale
+                if (this.isCacheStale()) {
+                    await this.updateDashboard();
+                }
+                return;
+            }
+
+            this.outputChannel.appendLine('🚀 Opening dashboard...');
+
+            this.panel = vscode.window.createWebviewPanel(
+                'agentDashboard',
+                '🤖 AI Agent Studio Dashboard',
+                vscode.ViewColumn.One,
+                {
+                    enableScripts: true,
+                    retainContextWhenHidden: true,
+                    localResourceRoots: [this.context.extensionUri]
+                }
+            );
+
+            // Handle panel disposal
+            this.panel.onDidDispose(() => {
+                this.cleanupDashboard();
+            });
+
+            // Handle messages from webview
+            this.panel.webview.onDidReceiveMessage(
+                message => this.handleWebviewMessage(message),
+                undefined,
+                this.context.subscriptions
+            );
+
+            // Show loading state first
+            this.panel.webview.html = this.getLoadingHTML();
+
+            // Load and display dashboard with performance tracking
+            const startTime = Date.now();
+            await this.updateDashboard();
+            const loadTime = Date.now() - startTime;
+            this.outputChannel.appendLine(`✅ Dashboard loaded in ${loadTime}ms`);
+
+            // Set up optimized auto-refresh
+            this.setupAutoRefresh();
+
+        } catch (error) {
+            this.outputChannel.appendLine(`❌ Error opening dashboard: ${error}`);
+            vscode.window.showErrorMessage(`Failed to open dashboard: ${error}`);
+        }
+    }
+
+    private cleanupDashboard(): void {
+        this.panel = undefined;
+        if (this.refreshInterval) {
+            clearInterval(this.refreshInterval);
+            this.refreshInterval = undefined;
+        }
+        this.outputChannel.appendLine('🧹 Dashboard cleanup completed');
+    }
+
+    private setupAutoRefresh(): void {
+        // Clear existing interval
+        if (this.refreshInterval) {
+            clearInterval(this.refreshInterval);
         }
 
-        this.panel = vscode.window.createWebviewPanel(
-            'agentDashboard',
-            '🤖 AI Agent Studio Dashboard',
-            vscode.ViewColumn.One,
-            {
-                enableScripts: true,
-                retainContextWhenHidden: true,
-                localResourceRoots: [this.context.extensionUri]
+        // Set up intelligent refresh based on user activity
+        this.refreshInterval = setInterval(async () => {
+            if (this.panel && this.panel.visible && !this.isRefreshing) {
+                await this.updateDashboard();
             }
-        );
+        }, this.REFRESH_INTERVAL);
+    }
 
-        // Handle panel disposal
-        this.panel.onDidDispose(() => {
-            this.panel = undefined;
-        });
-
-        // Handle messages from webview
-        this.panel.webview.onDidReceiveMessage(
-            message => this.handleWebviewMessage(message),
-            undefined,
-            this.context.subscriptions
-        );
-
-        // Load and display dashboard
-        await this.updateDashboard();
-
-        // Set up auto-refresh
-        setInterval(() => {
-            if (this.panel) {
-                this.updateDashboard();
-            }
-        }, 10000); // Refresh every 10 seconds
+    private getLoadingHTML(): string {
+        return `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Loading Dashboard</title>
+                <style>
+                    body {
+                        font-family: var(--vscode-font-family);
+                        background-color: var(--vscode-editor-background);
+                        color: var(--vscode-editor-foreground);
+                        display: flex;
+                        justify-content: center;
+                        align-items: center;
+                        height: 100vh;
+                        margin: 0;
+                        flex-direction: column;
+                    }
+                    .spinner {
+                        width: 40px;
+                        height: 40px;
+                        border: 4px solid var(--vscode-panel-border);
+                        border-top: 4px solid var(--vscode-textLink-foreground);
+                        border-radius: 50%;
+                        animation: spin 1s linear infinite;
+                        margin-bottom: 20px;
+                    }
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                    .loading-text {
+                        font-size: 16px;
+                        opacity: 0.8;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="spinner"></div>
+                <div class="loading-text">Loading AI Agent Studio Dashboard...</div>
+            </body>
+            </html>
+        `;
     }
 
     async visualizeFlow(): Promise<void> {
@@ -80,20 +198,61 @@ export class AgentDashboard {
     }
 
     private async updateDashboard(): Promise<void> {
-        if (!this.panel) return;
+        if (!this.panel || this.isRefreshing) return;
 
         try {
+            this.isRefreshing = true;
+
+            // Check cache first
+            if (!this.isCacheStale() && this.cache.data) {
+                this.panel.webview.html = this.getWebviewContent(this.cache.data);
+                return;
+            }
+
+            // Show updating indicator for slow updates
+            const startTime = Date.now();
+            
             const data = await this.collectDashboardData();
+            
+            // Update cache
+            this.cache = {
+                data,
+                timestamp: Date.now(),
+                isStale: false
+            };
+
+            const collectTime = Date.now() - startTime;
+            if (collectTime > 1000) {
+                this.outputChannel.appendLine(`⚠️ Slow dashboard update: ${collectTime}ms`);
+            }
+
             this.panel.webview.html = this.getWebviewContent(data);
+            
         } catch (error) {
-            console.error('Error updating dashboard:', error);
+            this.outputChannel.appendLine(`❌ Error updating dashboard: ${error}`);
+            this.panel.webview.html = this.getErrorHTML(error);
+        } finally {
+            this.isRefreshing = false;
         }
     }
 
+    private isCacheStale(): boolean {
+        return this.cache.isStale || 
+               !this.cache.data || 
+               (Date.now() - this.cache.timestamp) > this.CACHE_TTL;
+    }
+
+    private invalidateCache(): void {
+        this.cache.isStale = true;
+    }
+
     private async collectDashboardData(): Promise<DashboardData> {
-        const frameworks = this.frameworkManager.getFrameworks();
-        const projects = this.projectManager.getProjects();
-        const agents = this.agentMonitor.getRunningAgents();
+        // Collect data in parallel for better performance
+        const [frameworks, projects, agents] = await Promise.all([
+            this.safeGetFrameworks(),
+            this.safeGetProjects(),
+            this.safeGetAgents()
+        ]);
 
         // Calculate metrics
         const metrics = {
@@ -126,8 +285,109 @@ export class AgentDashboard {
             agents,
             metrics,
             recentActivity,
-            systemInfo
+            systemInfo,
+            lastUpdate: Date.now()
         };
+    }
+
+    // Safe data collection methods with error handling
+    private async safeGetFrameworks(): Promise<any[]> {
+        try {
+            return this.getFrameworkManager().getFrameworks();
+        } catch (error) {
+            this.outputChannel.appendLine(`⚠️ Error getting frameworks: ${error}`);
+            return [];
+        }
+    }
+
+    private async safeGetProjects(): Promise<any[]> {
+        try {
+            return this.getProjectManager().getProjects();
+        } catch (error) {
+            this.outputChannel.appendLine(`⚠️ Error getting projects: ${error}`);
+            return [];
+        }
+    }
+
+    private async safeGetAgents(): Promise<any[]> {
+        try {
+            return this.getAgentMonitor().getRunningAgents();
+        } catch (error) {
+            this.outputChannel.appendLine(`⚠️ Error getting agents: ${error}`);
+            return [];
+        }
+    }
+
+    private getErrorHTML(error: any): string {
+        return `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Dashboard Error</title>
+                <style>
+                    body {
+                        font-family: var(--vscode-font-family);
+                        background-color: var(--vscode-editor-background);
+                        color: var(--vscode-editor-foreground);
+                        padding: 40px;
+                        text-align: center;
+                    }
+                    .error-container {
+                        max-width: 600px;
+                        margin: 0 auto;
+                        padding: 30px;
+                        border: 1px solid var(--vscode-inputValidation-errorBorder);
+                        border-radius: 8px;
+                        background: var(--vscode-inputValidation-errorBackground);
+                    }
+                    .error-icon {
+                        font-size: 48px;
+                        margin-bottom: 20px;
+                    }
+                    .error-title {
+                        font-size: 24px;
+                        font-weight: bold;
+                        margin-bottom: 15px;
+                        color: var(--vscode-errorForeground);
+                    }
+                    .error-message {
+                        margin-bottom: 20px;
+                        opacity: 0.8;
+                    }
+                    .retry-button {
+                        padding: 10px 20px;
+                        background: var(--vscode-button-background);
+                        color: var(--vscode-button-foreground);
+                        border: none;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-size: 14px;
+                    }
+                    .retry-button:hover {
+                        background: var(--vscode-button-hoverBackground);
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="error-container">
+                    <div class="error-icon">❌</div>
+                    <div class="error-title">Dashboard Error</div>
+                    <div class="error-message">
+                        Failed to load dashboard data: ${error}
+                    </div>
+                    <button class="retry-button" onclick="retryLoad()">🔄 Retry</button>
+                </div>
+                <script>
+                    function retryLoad() {
+                        const vscode = acquireVsCodeApi();
+                        vscode.postMessage({ command: 'refresh' });
+                    }
+                </script>
+            </body>
+            </html>
+        `;
     }
     private calculateAverageResponseTime(agents: any[]): number {
         if (agents.length === 0) return 0;
@@ -176,33 +436,90 @@ export class AgentDashboard {
     }
 
     private async handleWebviewMessage(message: any): Promise<void> {
-        switch (message.command) {
-            case 'refresh':
-                await this.updateDashboard();
-                break;
-            case 'createProject':
-                await this.projectManager.createProject();
-                break;
-            case 'installFramework':
-                await this.frameworkManager.configureFramework();
-                break;
-            case 'startMonitoring':
-                await this.agentMonitor.startMonitoring();
-                break;
-            case 'testAgent':
-                await this.agentMonitor.testAgent();
-                break;
-            case 'openProject':
-                if (message.projectPath) {
-                    await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(message.projectPath));
+        try {
+            this.outputChannel.appendLine(`📨 Handling message: ${message.command}`);
+            
+            switch (message.command) {
+                case 'refresh':
+                    this.invalidateCache();
+                    await this.updateDashboard();
+                    break;
+                    
+                case 'createProject':
+                    await this.getProjectManager().createProject();
+                    this.invalidateCache(); // Invalidate cache after project creation
+                    break;
+                    
+                case 'installFramework':
+                    await this.getFrameworkManager().configureFramework();
+                    this.invalidateCache(); // Invalidate cache after framework changes
+                    break;
+                    
+                case 'startMonitoring':
+                    await this.getAgentMonitor().startMonitoring();
+                    this.invalidateCache(); // Invalidate cache after monitoring changes
+                    break;
+                    
+                case 'testAgent':
+                    await this.getAgentMonitor().testAgent();
+                    break;
+                    
+                case 'openProject':
+                    if (message.projectPath) {
+                        await vscode.commands.executeCommand('vscode.openFolder', vscode.Uri.file(message.projectPath));
+                    }
+                    break;
+                    
+                case 'viewLogs':
+                    if (message.agentId) {
+                        await this.showAgentLogs(message.agentId);
+                    }
+                    break;
+                    
+                case 'showMetrics':
+                    await vscode.commands.executeCommand('ai-agent-studio.showPerformanceMetrics');
+                    break;
+                    
+                case 'exportDashboard':
+                    await this.exportDashboardData();
+                    break;
+                    
+                default:
+                    this.outputChannel.appendLine(`⚠️ Unknown message command: ${message.command}`);
+            }
+        } catch (error) {
+            this.outputChannel.appendLine(`❌ Error handling message: ${error}`);
+            vscode.window.showErrorMessage(`Dashboard action failed: ${error}`);
+        }
+    }
+
+    private async exportDashboardData(): Promise<void> {
+        try {
+            const data = this.cache.data || await this.collectDashboardData();
+            const exportData = {
+                version: '1.0.0',
+                timestamp: new Date().toISOString(),
+                dashboardData: data,
+                metadata: {
+                    extensionVersion: vscode.extensions.getExtension('ai-agent-studio.ai-agent-studio')?.packageJSON.version,
+                    vscodeVersion: vscode.version
                 }
-                break;
-            case 'viewLogs':
-                if (message.agentId) {
-                    // Open logs for specific agent
-                    await this.showAgentLogs(message.agentId);
+            };
+
+            const saveOptions: vscode.SaveDialogOptions = {
+                defaultUri: vscode.Uri.file('dashboard-export.json'),
+                filters: {
+                    'JSON Files': ['json']
                 }
-                break;
+            };
+
+            const uri = await vscode.window.showSaveDialog(saveOptions);
+            if (uri) {
+                await vscode.workspace.fs.writeFile(uri, Buffer.from(JSON.stringify(exportData, null, 2)));
+                vscode.window.showInformationMessage(`Dashboard data exported to ${uri.fsPath}`);
+            }
+        } catch (error) {
+            vscode.window.showErrorMessage(`Failed to export dashboard data: ${error}`);
         }
     }
 
@@ -1182,8 +1499,53 @@ export class AgentDashboard {
     }
 
     dispose(): void {
+        this.outputChannel.appendLine('🔄 Disposing dashboard...');
+        
+        // Clean up panel
         if (this.panel) {
             this.panel.dispose();
+            this.panel = undefined;
         }
+        
+        // Clean up intervals
+        if (this.refreshInterval) {
+            clearInterval(this.refreshInterval);
+            this.refreshInterval = undefined;
+        }
+        
+        // Clear cache
+        this.cache = { data: null, timestamp: 0, isStale: true };
+        
+        // Dispose managers if they were created
+        if (this.frameworkManager && typeof this.frameworkManager.dispose === 'function') {
+            this.frameworkManager.dispose();
+        }
+        if (this.projectManager && typeof this.projectManager.dispose === 'function') {
+            this.projectManager.dispose();
+        }
+        if (this.agentMonitor && typeof this.agentMonitor.dispose === 'function') {
+            this.agentMonitor.dispose();
+        }
+        
+        // Dispose output channel
+        this.outputChannel.dispose();
+        
+        this.outputChannel.appendLine('✅ Dashboard disposed successfully');
+    }
+
+    // Public methods for external cache management
+    public forceRefresh(): void {
+        this.invalidateCache();
+        if (this.panel) {
+            this.updateDashboard();
+        }
+    }
+
+    public getCacheStatus(): { isStale: boolean; lastUpdate: number; age: number } {
+        return {
+            isStale: this.isCacheStale(),
+            lastUpdate: this.cache.timestamp,
+            age: Date.now() - this.cache.timestamp
+        };
     }
 }
